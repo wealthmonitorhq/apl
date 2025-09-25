@@ -37,17 +37,23 @@ public class AuctionPlayerRepository {
 		}
 	};
 
-	// Add player to auction
-	public Long save(AuctionPlayer player) {
+	public int save(AuctionPlayer player) {
+		// Check if player is registered for the tournament
+		String checkSql = "SELECT COUNT(*) FROM tournament_players WHERE tournament_id=? AND player_id=?";
+		Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, player.getTournamentId(),
+				player.getPlayerId());
+		if (count == null || count == 0) {
+			throw new IllegalStateException("Player not registered for this tournament!");
+		}
+
 		String sql = "INSERT INTO auction_players (auction_id, player_id, base_price, status, created_at, updated_at) "
-				+ "VALUES (?, ?, ?, ?, now(), now()) RETURNING id";
-		return jdbcTemplate.queryForObject(sql, Long.class, player.getAuctionId(), player.getPlayerId(),
-				player.getBasePrice(), player.getStatus() != null ? player.getStatus() : "unsold");
+				+ "VALUES (?, ?, ?, ?, now(), now())";
+		return jdbcTemplate.update(sql, player.getAuctionId(), player.getPlayerId(), player.getBasePrice(),
+				player.getStatus());
 	}
 
-	// Fetch all players for an auction
 	public List<AuctionPlayer> findByAuctionId(Long auctionId) {
-		String sql = "SELECT * FROM auction_players WHERE auction_id=? ORDER BY id";
+		String sql = "SELECT * FROM auction_players WHERE auction_id=?";
 		return jdbcTemplate.query(sql, auctionPlayerRowMapper, auctionId);
 	}
 

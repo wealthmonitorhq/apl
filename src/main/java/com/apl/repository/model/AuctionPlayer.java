@@ -7,6 +7,7 @@ public class AuctionPlayer {
 	private Long id;
 	private Long auctionId;
 	private Long playerId;
+	private Long tournamentId;
 	private Double basePrice;
 	private Double finalPrice;
 	private String status; // unsold, sold, withdrawn
@@ -37,6 +38,14 @@ public class AuctionPlayer {
 
 	public void setPlayerId(Long playerId) {
 		this.playerId = playerId;
+	}
+
+	public Long getTournamentId() {
+		return tournamentId;
+	}
+
+	public void setTournamentId(Long tournamentId) {
+		this.tournamentId = tournamentId;
 	}
 
 	public Double getBasePrice() {

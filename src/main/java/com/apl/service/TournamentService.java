@@ -46,4 +46,13 @@ public class TournamentService {
 	public List<Auction> getAuctionsForTournament(Long tournamentId) {
 		return auctionService.getTournamentsAuctions(tournamentId);
 	}
+
+	public boolean registerPlayerForTournament(Long tournamentId, Long playerId, String role) {
+		return repository.registerPlayer(tournamentId, playerId, role) > 0;
+	}
+
+	public List<Long> getTournamentPlayers(Long tournamentId) {
+		return repository.getPlayersForTournament(tournamentId);
+	}
+
 }

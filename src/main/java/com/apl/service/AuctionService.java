@@ -57,8 +57,15 @@ public class AuctionService {
 	// ===============================
 
 	public Long registerPlayerForAuction(AuctionPlayer player) {
+		// fetch auction to get tournamentId
+		Auction auction = auctionRepository.findById(player.getAuctionId())
+				.orElseThrow(() -> new IllegalStateException("Auction not found"));
+
+		player.setTournamentId(auction.getTournamentId()); // link auction → tournament
 		player.setStatus("unsold"); // default status
-		return auctionPlayerRepository.save(player);
+
+		auctionPlayerRepository.save(player);
+		return player.getId();
 	}
 
 	public List<AuctionPlayer> getAuctionPlayers(Long auctionId) {

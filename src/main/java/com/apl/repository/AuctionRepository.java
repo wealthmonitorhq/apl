@@ -85,12 +85,6 @@ public class AuctionRepository {
 		return Optional.of(auctions.get(0));
 	}
 
-	// Add inside AuctionRepository
-	public List<Auction> findByTournamentId(Long tournamentId) {
-		String sql = "SELECT * FROM auctions WHERE tournament_id=? ORDER BY auction_date DESC";
-		return jdbcTemplate.query(sql, auctionRowMapper, tournamentId);
-	}
-
 	public int updateStatus(Long auctionId, String status) {
 		String sql = "UPDATE auctions SET status=?, updated_at=now() WHERE id=?";
 		return jdbcTemplate.update(sql, status, auctionId);
@@ -99,6 +93,11 @@ public class AuctionRepository {
 	public List<Auction> findByAuction(Long auctionId) {
 		String sql = "SELECT * FROM auctions WHERE id=?";
 		return jdbcTemplate.query(sql, auctionRowMapper, auctionId);
+	}
+
+	public List<Auction> findByTournamentId(Long tournamentId) {
+		String sql = "SELECT * FROM auctions WHERE tournament_id=? ORDER BY auction_date DESC";
+		return jdbcTemplate.query(sql, auctionRowMapper, tournamentId);
 	}
 
 }

@@ -49,4 +49,15 @@ public class TournamentRepository {
 		String sql = "DELETE FROM tournaments WHERE id=?";
 		return jdbcTemplate.update(sql, id);
 	}
+
+	public int registerPlayer(Long tournamentId, Long playerId, String role) {
+		String sql = "INSERT INTO tournament_players (tournament_id, player_id, role, joined_at) VALUES (?, ?, ?, now())";
+		return jdbcTemplate.update(sql, tournamentId, playerId, role);
+	}
+
+	public List<Long> getPlayersForTournament(Long tournamentId) {
+		String sql = "SELECT player_id FROM tournament_players WHERE tournament_id = ?";
+		return jdbcTemplate.queryForList(sql, Long.class, tournamentId);
+	}
+
 }

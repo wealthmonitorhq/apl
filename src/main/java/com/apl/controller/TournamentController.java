@@ -53,4 +53,17 @@ public class TournamentController {
 	public ResponseEntity<List<Auction>> getAuctionsForTournament(@PathVariable Long tournamentId) {
 		return ResponseEntity.ok(service.getAuctionsForTournament(tournamentId));
 	}
+
+	@PostMapping("/{tournamentId}/players")
+	public ResponseEntity<Void> registerPlayerForTournament(@PathVariable Long tournamentId,
+			@RequestParam Long playerId, @RequestParam String role) {
+		boolean success = service.registerPlayerForTournament(tournamentId, playerId, role);
+		return success ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
+	}
+
+	@GetMapping("/{tournamentId}/players")
+	public ResponseEntity<List<Long>> getPlayersForTournament(@PathVariable Long tournamentId) {
+		return ResponseEntity.ok(service.getTournamentPlayers(tournamentId));
+	}
+
 }
