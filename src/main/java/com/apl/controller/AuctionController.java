@@ -61,10 +61,14 @@ public class AuctionController {
 	}
 
 	@PostMapping("/players/{auctionPlayerId}/sell")
-	public ResponseEntity<Void> markPlayerSold(@PathVariable Long auctionPlayerId, @RequestParam Long teamId,
+	public ResponseEntity<?> markPlayerSold(@PathVariable Long auctionPlayerId, @RequestParam Long teamId,
 			@RequestParam double finalPrice) {
-		boolean success = auctionService.markPlayerSold(auctionPlayerId, teamId, finalPrice);
-		return success ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
+		try {
+			boolean success = auctionService.markPlayerSold(auctionPlayerId, teamId, finalPrice);
+			return success ? ResponseEntity.ok().build() : ResponseEntity.badRequest().body("Cannot mark player sold");
+		} catch (IllegalStateException ex) {
+			return ResponseEntity.badRequest().body(ex.getMessage());
+		}
 	}
 
 	// ===============================
@@ -72,8 +76,12 @@ public class AuctionController {
 	// ===============================
 
 	@PostMapping("/bids")
-	public ResponseEntity<Long> placeBid(@RequestBody AuctionBid bid) {
-		return ResponseEntity.ok(auctionService.placeBid(bid));
+	public ResponseEntity<?> placeBid(@RequestBody AuctionBid bid) {
+		try {
+			return ResponseEntity.ok(auctionService.placeBid(bid));
+		} catch (IllegalStateException ex) {
+			return ResponseEntity.badRequest().body(ex.getMessage());
+		}
 	}
 
 	@GetMapping("/players/{auctionPlayerId}/bids")
@@ -96,6 +104,12 @@ public class AuctionController {
 		return ResponseEntity.ok(auctionService.getAuctionTeamPurses(auctionId));
 	}
 
+	@GetMapping("/{auctionId}/purse/{teamId}")
+	public ResponseEntity<Double> getRemainingPurse(@PathVariable Long auctionId, @PathVariable Long teamId) {
+		Optional<Double> remaining = auctionService.getRemainingPurse(auctionId, teamId);
+		return remaining.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
 	// ===============================
 	// Retention
 	// ===============================
@@ -114,10 +128,14 @@ public class AuctionController {
 	}
 
 	@PostMapping("/{auctionId}/retention/players")
-	public ResponseEntity<Long> retainPlayer(@PathVariable Long auctionId,
+	public ResponseEntity<?> retainPlayer(@PathVariable Long auctionId,
 			@RequestBody AuctionRetainedPlayer retainedPlayer) {
-		retainedPlayer.setAuctionId(auctionId);
-		return ResponseEntity.ok(auctionService.retainPlayer(retainedPlayer));
+		try {
+			retainedPlayer.setAuctionId(auctionId);
+			return ResponseEntity.ok(auctionService.retainPlayer(retainedPlayer));
+		} catch (IllegalStateException ex) {
+			return ResponseEntity.badRequest().body(ex.getMessage());
+		}
 	}
 
 	@GetMapping("/{auctionId}/retention/players")
@@ -129,5 +147,20 @@ public class AuctionController {
 	public ResponseEntity<List<AuctionRetainedPlayer>> getRetainedPlayersForTeam(@PathVariable Long auctionId,
 			@PathVariable Long teamId) {
 		return ResponseEntity.ok(auctionService.getRetainedPlayersForTeam(auctionId, teamId));
+	}
+
+	// ===============================
+	// Bulk Retention (Prototype)
+	// ===============================
+
+	@PostMapping("/{auctionId}/retention/players/bulk")
+	public ResponseEntity<?> autoRetainPlayers(@PathVariable Long auctionId,
+			@RequestBody List<AuctionRetainedPlayer> playersToRetain) {
+		try {
+			auctionService.autoRetainPlayers(auctionId, playersToRetain);
+			return ResponseEntity.ok().build();
+		} catch (IllegalStateException ex) {
+			return ResponseEntity.badRequest().body(ex.getMessage());
+		}
 	}
 }

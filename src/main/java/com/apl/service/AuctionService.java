@@ -3,18 +3,8 @@ package com.apl.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.apl.repository.AuctionBidRepository;
-import com.apl.repository.AuctionPlayerRepository;
-import com.apl.repository.AuctionRepository;
-import com.apl.repository.AuctionRetainedPlayerRepository;
-import com.apl.repository.AuctionRetentionRuleRepository;
-import com.apl.repository.AuctionTeamPurseRepository;
-import com.apl.repository.model.Auction;
-import com.apl.repository.model.AuctionBid;
-import com.apl.repository.model.AuctionPlayer;
-import com.apl.repository.model.AuctionRetainedPlayer;
-import com.apl.repository.model.AuctionRetentionRule;
-import com.apl.repository.model.AuctionTeamPurse;
+import com.apl.repository.*;
+import com.apl.repository.model.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,10 +32,11 @@ public class AuctionService {
 	}
 
 	// ===============================
-	// Auction lifecycle
+	// Auction Lifecycle
 	// ===============================
 
 	public Long createAuction(Auction auction) {
+		auction.setStatus("scheduled"); // default status
 		return auctionRepository.save(auction);
 	}
 
@@ -66,6 +57,7 @@ public class AuctionService {
 	// ===============================
 
 	public Long registerPlayerForAuction(AuctionPlayer player) {
+		player.setStatus("unsold"); // default status
 		return auctionPlayerRepository.save(player);
 	}
 
@@ -75,21 +67,27 @@ public class AuctionService {
 
 	@Transactional
 	public boolean markPlayerSold(Long auctionPlayerId, Long teamId, double finalPrice) {
-		// update player status and sold price
-		int updated = auctionPlayerRepository.markPlayerSold(auctionPlayerId, teamId, finalPrice);
-		if (updated > 0) {
-			// get auctionId from player
-			Optional<AuctionPlayer> playerOpt = auctionPlayerRepository.findByAuctionPlayer(auctionPlayerId);
-			if (playerOpt.isEmpty()) {
-				throw new IllegalStateException("Auction player not found!");
-			}
-			Long auctionId = playerOpt.get().getAuctionId();
+		Optional<AuctionPlayer> playerOpt = auctionPlayerRepository.findByAuctionPlayer(auctionPlayerId);
+		if (playerOpt.isEmpty())
+			throw new IllegalStateException("Auction player not found!");
 
-			// deduct purse from team for that auction
-			auctionTeamPurseRepository.deductPurse(auctionId, teamId, finalPrice);
-			return true;
+		AuctionPlayer player = playerOpt.get();
+		Long auctionId = player.getAuctionId();
+
+		// check auction status
+		Optional<Auction> auctionOpt = auctionRepository.findById(auctionId);
+		if (auctionOpt.isEmpty() || !"live".equalsIgnoreCase(auctionOpt.get().getStatus())) {
+			throw new IllegalStateException("Cannot sell player: Auction is not live!");
 		}
-		return false;
+
+		// deduct purse
+		int deducted = auctionTeamPurseRepository.deductPurse(auctionId, teamId, finalPrice);
+		if (deducted == 0)
+			throw new IllegalStateException("Insufficient purse!");
+
+		// mark player sold
+		int updated = auctionPlayerRepository.markPlayerSold(auctionPlayerId, teamId, finalPrice);
+		return updated > 0;
 	}
 
 	// ===============================
@@ -98,16 +96,26 @@ public class AuctionService {
 
 	@Transactional
 	public Long placeBid(AuctionBid bid) {
-		// fetch auctionId from auctionPlayerId
 		Optional<AuctionPlayer> playerOpt = auctionPlayerRepository.findByAuctionPlayer(bid.getAuctionPlayerId());
-		if (playerOpt.isEmpty()) {
+		if (playerOpt.isEmpty())
 			throw new IllegalStateException("Auction player not found!");
+
+		AuctionPlayer player = playerOpt.get();
+		Long auctionId = player.getAuctionId();
+
+		// ensure auction is live
+		Optional<Auction> auctionOpt = auctionRepository.findById(auctionId);
+		if (auctionOpt.isEmpty() || !"live".equalsIgnoreCase(auctionOpt.get().getStatus())) {
+			throw new IllegalStateException("Auction is not live!");
 		}
-		Long auctionId = playerOpt.get().getAuctionId();
 
-		// validate team has enough purse
+		// ensure player is unsold
+		if (!"unsold".equalsIgnoreCase(player.getStatus())) {
+			throw new IllegalStateException("Cannot bid: Player already sold or withdrawn!");
+		}
+
+		// validate team purse
 		double remainingPurse = auctionTeamPurseRepository.getRemainingPurse(auctionId, bid.getTeamId()).orElse(0.0);
-
 		if (remainingPurse < bid.getBidAmount()) {
 			throw new IllegalStateException("Insufficient purse to place bid!");
 		}
@@ -131,6 +139,22 @@ public class AuctionService {
 		return auctionTeamPurseRepository.findByAuction(auctionId);
 	}
 
+	public Optional<Double> getRemainingPurse(Long auctionId, Long teamId) {
+		return auctionTeamPurseRepository.getRemainingPurse(auctionId, teamId);
+	}
+
+	@Transactional
+	public void initializeTeamPursesForAuction(Long auctionId, List<Long> teamIds, double initialPurse) {
+		for (Long teamId : teamIds) {
+			AuctionTeamPurse purse = new AuctionTeamPurse();
+			purse.setAuctionId(auctionId);
+			purse.setTeamId(teamId);
+			purse.setInitialPurse(initialPurse);
+			purse.setRemainingPurse(initialPurse);
+			auctionTeamPurseRepository.save(purse);
+		}
+	}
+
 	// ===============================
 	// Retention
 	// ===============================
@@ -143,7 +167,34 @@ public class AuctionService {
 		return auctionRetentionRuleRepository.findByAuction(auctionId);
 	}
 
+	@Transactional
 	public Long retainPlayer(AuctionRetainedPlayer retainedPlayer) {
+		Long auctionId = retainedPlayer.getAuctionId();
+		Long teamId = retainedPlayer.getTeamId();
+
+		// Fetch the retention rule for this auction
+		AuctionRetentionRule rule = auctionRetentionRuleRepository.findByAuction(auctionId)
+				.orElseThrow(() -> new IllegalStateException("Retention rule not defined"));
+
+		// Check how many players the team has already retained
+		List<AuctionRetainedPlayer> existing = auctionRetainedPlayerRepository.findByAuctionAndTeam(auctionId, teamId);
+		if (existing.size() >= rule.getMaxRetained()) { // use maxRetained from schema
+			throw new IllegalStateException("Team has already retained maximum allowed players");
+		}
+
+		// Check remaining purse
+		double remainingPurse = auctionTeamPurseRepository.getRemainingPurse(auctionId, teamId).orElse(0.0);
+		if (remainingPurse < retainedPlayer.getRetentionPrice()) {
+			throw new IllegalStateException("Insufficient purse for retention!");
+		}
+
+		// Deduct the purse
+		int deducted = auctionTeamPurseRepository.deductPurse(auctionId, teamId, retainedPlayer.getRetentionPrice());
+		if (deducted == 0) {
+			throw new IllegalStateException("Failed to deduct purse!");
+		}
+
+		// Save the retained player
 		return auctionRetainedPlayerRepository.save(retainedPlayer);
 	}
 
@@ -153,5 +204,27 @@ public class AuctionService {
 
 	public List<AuctionRetainedPlayer> getRetainedPlayersForTeam(Long auctionId, Long teamId) {
 		return auctionRetainedPlayerRepository.findByAuctionAndTeam(auctionId, teamId);
+	}
+
+	// ===============================
+	// Bulk Auction Operations
+	// ===============================
+
+	/**
+	 * Automatically retain all eligible players for teams based on retention rules.
+	 */
+	@Transactional
+	public void autoRetainPlayers(Long auctionId, List<AuctionRetainedPlayer> playersToRetain) {
+		AuctionRetentionRule rule = auctionRetentionRuleRepository.findByAuction(auctionId)
+				.orElseThrow(() -> new IllegalStateException("Retention rule not defined"));
+
+		for (AuctionRetainedPlayer player : playersToRetain) {
+			List<AuctionRetainedPlayer> teamExisting = auctionRetainedPlayerRepository.findByAuctionAndTeam(auctionId,
+					player.getTeamId());
+
+			if (teamExisting.size() < rule.getMaxRetained()) { // again, use maxRetained
+				retainPlayer(player);
+			}
+		}
 	}
 }
