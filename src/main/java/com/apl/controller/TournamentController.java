@@ -3,6 +3,7 @@ package com.apl.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.apl.repository.model.Auction;
 import com.apl.repository.model.Tournament;
 import com.apl.service.TournamentService;
 
@@ -45,5 +46,11 @@ public class TournamentController {
 			return ResponseEntity.noContent().build();
 		}
 		return ResponseEntity.notFound().build();
+	}
+
+	// ----------------- Auctions for Tournament -----------------
+	@GetMapping("/{tournamentId}/auctions")
+	public ResponseEntity<List<Auction>> getAuctionsForTournament(@PathVariable Long tournamentId) {
+		return ResponseEntity.ok(service.getAuctionsForTournament(tournamentId));
 	}
 }

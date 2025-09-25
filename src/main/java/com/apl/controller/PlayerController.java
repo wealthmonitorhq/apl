@@ -46,4 +46,15 @@ public class PlayerController {
 		}
 		return ResponseEntity.notFound().build();
 	}
+
+	@GetMapping("/tournament/{tournamentId}")
+	public ResponseEntity<List<Player>> getPlayersByTournament(@PathVariable Long tournamentId) {
+		return ResponseEntity.ok(service.getPlayersByTournament(tournamentId));
+	}
+
+	@GetMapping("/team/{teamId}")
+	public ResponseEntity<List<Player>> getPlayersByTeam(@PathVariable Long teamId) {
+		return ResponseEntity.ok(service.getPlayersByTeam(teamId));
+	}
+
 }

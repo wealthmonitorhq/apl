@@ -38,4 +38,13 @@ public class PlayerService {
 	public boolean deletePlayer(Long id) {
 		return repository.deleteById(id) > 0;
 	}
+
+	public List<Player> getPlayersByTournament(Long tournamentId) {
+		return repository.findByTournamentId(tournamentId);
+	}
+
+	public List<Player> getPlayersByTeam(Long teamId) {
+		return repository.findByTeamId(teamId);
+	}
+
 }

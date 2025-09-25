@@ -3,6 +3,7 @@ package com.apl.service;
 import org.springframework.stereotype.Service;
 
 import com.apl.repository.TournamentRepository;
+import com.apl.repository.model.Auction;
 import com.apl.repository.model.Tournament;
 
 import java.util.List;
@@ -12,9 +13,11 @@ import java.util.Optional;
 public class TournamentService {
 
 	private final TournamentRepository repository;
+	private final AuctionService auctionService;
 
-	public TournamentService(TournamentRepository repository) {
+	public TournamentService(TournamentRepository repository, AuctionService auctionService) {
 		this.repository = repository;
+		this.auctionService = auctionService;
 	}
 
 	public List<Tournament> getAllTournaments() {
@@ -37,5 +40,10 @@ public class TournamentService {
 
 	public boolean deleteTournament(Long id) {
 		return repository.deleteById(id) > 0;
+	}
+
+	// ----------------- Auction Integration -----------------
+	public List<Auction> getAuctionsForTournament(Long tournamentId) {
+		return auctionService.getTournamentsAuctions(tournamentId);
 	}
 }
