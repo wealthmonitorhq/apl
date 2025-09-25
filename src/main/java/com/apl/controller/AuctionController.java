@@ -163,4 +163,21 @@ public class AuctionController {
 			return ResponseEntity.badRequest().body(ex.getMessage());
 		}
 	}
+
+	// ------------------------------
+	// Unsold Players
+	// ------------------------------
+	@GetMapping("/{auctionId}/players/unsold")
+	public ResponseEntity<List<AuctionPlayer>> getUnsoldPlayers(@PathVariable Long auctionId) {
+		return ResponseEntity.ok(auctionService.getUnsoldPlayers(auctionId));
+	}
+
+	// ------------------------------
+	// Auction Summary
+	// ------------------------------
+	@GetMapping("/{auctionId}/summary")
+	public ResponseEntity<AuctionSummary> getAuctionSummary(@PathVariable Long auctionId) {
+		return ResponseEntity.ok(auctionService.getAuctionSummary(auctionId));
+	}
+
 }

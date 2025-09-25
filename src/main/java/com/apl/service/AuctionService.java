@@ -6,7 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.apl.repository.*;
 import com.apl.repository.model.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -234,4 +236,32 @@ public class AuctionService {
 			}
 		}
 	}
+
+	// ------------------------------
+	// Unsold Players
+	// ------------------------------
+	public List<AuctionPlayer> getUnsoldPlayers(Long auctionId) {
+		return auctionPlayerRepository.findByAuctionId(auctionId).stream()
+				.filter(p -> "unsold".equalsIgnoreCase(p.getStatus())).toList();
+	}
+
+	// ------------------------------
+	// Auction Summary / Dashboard
+	// ------------------------------
+	public AuctionSummary getAuctionSummary(Long auctionId) {
+		List<AuctionPlayer> allPlayers = auctionPlayerRepository.findByAuctionId(auctionId);
+		List<AuctionPlayer> soldPlayers = allPlayers.stream().filter(p -> "sold".equalsIgnoreCase(p.getStatus()))
+				.toList();
+
+		List<AuctionTeamPurse> teamPurses = auctionTeamPurseRepository.findByAuction(auctionId);
+
+		// Highest bid per player
+		Map<Long, AuctionBid> highestBids = new HashMap<>();
+		for (AuctionPlayer player : allPlayers) {
+			auctionBidRepository.findHighestBid(player.getId()).ifPresent(bid -> highestBids.put(player.getId(), bid));
+		}
+
+		return new AuctionSummary(allPlayers, soldPlayers, teamPurses, highestBids);
+	}
+
 }
